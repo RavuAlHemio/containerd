@@ -17,7 +17,7 @@
 scripts_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 : ${RUNHCS_VERSION:="$(cat $scripts_path/runhcs-version)"}
-: ${RUNHCS_REPO:="https://github.com/Microsoft/hcsshim.git"}
+: ${RUNHCS_REPO:="https://github.com/RavuAlHemio/hcsshim.git"}
 : ${HCSSHIM_SRC:=''}
 : ${DESTDIR:=''}
 : ${GOOS:="windows"}
