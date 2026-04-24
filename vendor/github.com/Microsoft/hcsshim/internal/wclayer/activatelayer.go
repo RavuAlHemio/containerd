@@ -4,6 +4,8 @@ package wclayer
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"syscall"
 	"time"
 
@@ -29,17 +31,23 @@ func ActivateLayer(ctx context.Context, path string) (err error) {
 
 	sleepSecs := 1
 	for sleepSecs <= 30 {
+		fmt.Fprintf(os.Stderr, "calling activateLayer\n")
 		err = activateLayer(&stdDriverInfo, path)
 		if err == nil {
+			fmt.Fprintf(os.Stderr, "activateLayer succeeded\n")
 			break
 		}
 		if errnoErr, ok := err.(syscall.Errno); ok {
 			errnoInt := uintptr(errnoErr)
+			fmt.Fprintf(os.Stderr, "it's an errno error and our errno is %d\n", errnoInt)
 			if errnoInt == errnoERROR_SHARING_VIOLATION {
+				fmt.Fprintf(os.Stderr, "it's a sharing violation; sleeping %d this time\n", sleepSecs)
 				time.Sleep(time.Duration(sleepSecs * 1000000000))
 				sleepSecs = sleepSecs * 2
 				continue
 			}
+		} else {
+			fmt.Fprintf(os.Stderr, "it's not an errno error\n")
 		}
 
 		break
