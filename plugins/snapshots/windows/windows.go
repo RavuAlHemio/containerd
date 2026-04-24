@@ -288,24 +288,37 @@ func (s *wcowSnapshotter) convertScratchToReadOnlyLayer(ctx context.Context, sna
 	}
 
 	parentLayerPaths := s.parentIDsToParentPaths(snapshot.ParentIDs)
-	reader, writer := io.Pipe()
 
-	go func() {
-		err := ociwclayer.ExportLayerToTar(ctx, writer, path, parentLayerPaths)
-		writer.CloseWithError(err)
-	}()
+	// write to temp tar file
+	f, err := os.CreateTemp("", "scratchToROL_*.tar")
+	if err != nil {
+		return fmt.Errorf("failed to open temp .tar file: %w", err);
+	}
+	defer os.Remove(f.Name())
+	if err := ociwclayer.ExportLayerToTar(ctx, f, path, parentLayerPaths); err != nil {
+		return fmt.Errorf("failed to export layer to .tar: %w", err);
+	}
+	if err := f.Sync(); err != nil {
+		return fmt.Errorf("failed to sync .tar file: %w", err);
+	}
+
+	// rewind temp tar file and read from it
+	const WhenceStart = 0
+	if _, err := f.Seek(0, WhenceStart); err != nil {
+		return fmt.Errorf("failed to seek to start of .tar: %w", err);
+	}
 
 	// It seems that in certain situations, like having the containerd root and state on a file system hosted on a
 	// mounted VHDX, we need SeSecurityPrivilege when opening a file with winio.ACCESS_SYSTEM_SECURITY. This happens
 	// in the base layer writer in hcsshim when adding a new file.
 	if err := winio.RunWithPrivileges([]string{winio.SeSecurityPrivilege}, func() error {
-		_, err := ociwclayer.ImportLayerFromTar(ctx, reader, path, parentLayerPaths)
+		_, err := ociwclayer.ImportLayerFromTar(ctx, f, path, parentLayerPaths)
 		return err
 	}); err != nil {
 		return fmt.Errorf("failed to reimport snapshot: %w", err)
 	}
 
-	if _, err := io.Copy(io.Discard, reader); err != nil {
+	if _, err := io.Copy(io.Discard, f); err != nil {
 		return fmt.Errorf("failed discarding extra data in import stream: %w", err)
 	}
 
