@@ -4,7 +4,6 @@ package wclayer
 
 import (
 	"context"
-	"errors"
 	"syscall"
 	"time"
 
@@ -15,10 +14,6 @@ import (
 
 const (
 	errnoERROR_SHARING_VIOLATION = 32
-)
-
-var (
-	errERROR_SHARING_VIOLATION error = syscall.Errno(errnoERROR_SHARING_VIOLATION)
 )
 
 // ActivateLayer will find the layer with the given id and mount it's filesystem.
@@ -38,10 +33,13 @@ func ActivateLayer(ctx context.Context, path string) (err error) {
 		if err == nil {
 			break
 		}
-		if errors.Is(err, errERROR_SHARING_VIOLATION) {
-			time.Sleep(time.Duration(sleepSecs * 1000000000))
-			sleepSecs = sleepSecs * 2
-			continue
+		if errnoErr, ok := err.(syscall.Errno); ok {
+			errnoInt := uintptr(errnoErr)
+			if errnoInt == errnoERROR_SHARING_VIOLATION {
+				time.Sleep(time.Duration(sleepSecs * 1000000000))
+				sleepSecs = sleepSecs * 2
+				continue
+			}
 		}
 
 		break
