@@ -4,10 +4,21 @@ package wclayer
 
 import (
 	"context"
+	"errors"
+	"syscall"
+	"time"
 
 	"github.com/Microsoft/hcsshim/internal/hcserror"
 	"github.com/Microsoft/hcsshim/internal/oc"
 	"go.opencensus.io/trace"
+)
+
+const (
+	errnoERROR_SHARING_VIOLATION = 32
+)
+
+var (
+	errERROR_SHARING_VIOLATION error = syscall.Errno(errnoERROR_SHARING_VIOLATION)
 )
 
 // ActivateLayer will find the layer with the given id and mount it's filesystem.
@@ -21,7 +32,21 @@ func ActivateLayer(ctx context.Context, path string) (err error) {
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(trace.StringAttribute("path", path))
 
-	err = activateLayer(&stdDriverInfo, path)
+	sleepSecs := 1
+	for sleepSecs <= 30 {
+		err = activateLayer(&stdDriverInfo, path)
+		if err == nil {
+			break
+		}
+		if errors.Is(err, errERROR_SHARING_VIOLATION) {
+			time.Sleep(time.Duration(sleepSecs * 1000000000))
+			sleepSecs = sleepSecs * 2
+			continue
+		}
+
+		break
+	}
+
 	if err != nil {
 		return hcserror.New(err, title, "")
 	}
