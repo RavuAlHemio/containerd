@@ -4,11 +4,10 @@ package wclayer
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"syscall"
 	"time"
 
+	"github.com/containerd/log"
 	"github.com/Microsoft/hcsshim/internal/hcserror"
 	"github.com/Microsoft/hcsshim/internal/oc"
 	"go.opencensus.io/trace"
@@ -29,25 +28,27 @@ func ActivateLayer(ctx context.Context, path string) (err error) {
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(trace.StringAttribute("path", path))
 
+	logEntry := log.G(ctx)
+
 	sleepSecs := 1
 	for sleepSecs <= 30 {
-		fmt.Fprintf(os.Stderr, "calling activateLayer\n")
+		logEntry.Info("calling activateLayer")
 		err = activateLayer(&stdDriverInfo, path)
 		if err == nil {
-			fmt.Fprintf(os.Stderr, "activateLayer succeeded\n")
+			logEntry.Info("activateLayer succeeded")
 			break
 		}
 		if errnoErr, ok := err.(syscall.Errno); ok {
 			errnoInt := uintptr(errnoErr)
-			fmt.Fprintf(os.Stderr, "it's an errno error and our errno is %d\n", errnoInt)
+			logEntry.Infof("it's an errno error and our errno is %d", errnoInt)
 			if errnoInt == errnoERROR_SHARING_VIOLATION {
-				fmt.Fprintf(os.Stderr, "it's a sharing violation; sleeping %d this time\n", sleepSecs)
+				logEntry.Infof("it's a sharing violation; sleeping %d s this time", sleepSecs)
 				time.Sleep(time.Duration(sleepSecs * 1000000000))
 				sleepSecs = sleepSecs * 2
 				continue
 			}
 		} else {
-			fmt.Fprintf(os.Stderr, "it's not an errno error\n")
+			logEntry.Info("it's not an errno error")
 		}
 
 		break

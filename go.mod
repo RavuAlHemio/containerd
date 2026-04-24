@@ -93,6 +93,8 @@ require (
 	tags.cncf.io/container-device-interface v1.1.0
 )
 
+replace github.com/Microsoft/hcsshim v0.15.0-rc.1 => github.com/RavuAlHemio/hcsshim v0.0.0-20260424200641-4d88914be932
+
 require (
 	cyphar.com/go-pathrs v0.2.1 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
